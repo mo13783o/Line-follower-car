@@ -1,0 +1,164 @@
+#include <SoftwareSerial.h>
+#include <Servo.h>
+
+SoftwareSerial mySerial(0, 1); // RX, TX
+Servo myservo;  // Servo for green color
+Servo redServo; // New servo for red color
+
+#define enA 10 // Enable1 L298 Pin enA
+#define in1 9  // Motor1 L298 Pin in1
+#define in2 8  // Motor1 L298 Pin in1
+#define in3 7  // Motor2 L298 Pin in1
+#define in4 6  // Motor2 L298 Pin in1
+#define enB 5  // Enable2 L298 Pin enB
+#define L_S A0 // ir sensor Left
+#define R_S 3  // ir sensor Right
+#define M_S 2  // ir sensor middle
+#define trigPin 8 // Ultrasonic sensor trigger pin
+#define echoPin 9 // Ultrasonic sensor echo pin
+#define distanceThreshold 20 // Distance threshold for obstacle detection (adjust as needed)
+
+void setup() {
+  Serial.begin(9600);    // start serial communication at 9600bps
+  mySerial.begin(9600);  // start software serial communication with the sender Arduino
+  myservo.attach(9);     // attach the servo to pin 9
+  redServo.attach(11);   // attach the new servo to pin 11
+  pinMode(R_S, INPUT);   // declare if sensor as input
+  pinMode(L_S, INPUT);   // declare ir sensor as input
+  pinMode(M_S, INPUT);
+  pinMode(enA, OUTPUT);  // declare as output for L298 Pin enA
+  pinMode(in1, OUTPUT);  // declare as output for L298 Pin in1
+  pinMode(in2, OUTPUT);  // declare as output for L298 Pin in2
+  pinMode(in3, OUTPUT);  // declare as output for L298 Pin in3
+  pinMode(in4, OUTPUT);  // declare as output for L298 Pin in4
+  pinMode(enB, OUTPUT);  // declare as output for L298 Pin enB
+  pinMode(trigPin, OUTPUT); // declare ultrasonic trigger pin as output
+  pinMode(echoPin, INPUT);  // declare ultrasonic echo pin as input
+  analogWrite(enA, 100); // Write The Duty Cycle 0 to 255 Enable Pin A for Motor1 Speed
+  analogWrite(enB, 100); // Write The Duty Cycle 0 to 255 Enable Pin B for Motor2 Speed
+}
+
+void loop() {
+  // Check if there is data available from the sender Arduino
+  if (mySerial.available()) {
+    // Read the data sent by the sender Arduino
+    String data = mySerial.readStringUntil('\n');
+
+    // Print the received data to the serial monitor
+    Serial.println("Received Data: " + data);
+
+    // Process the received data and control the robot
+    processData(data);
+  }
+
+  // Check for obstacle using ultrasonic sensor
+  long duration, distance;
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration * 0.0343) / 2;
+
+  // Stop the robot if an obstacle is detected
+  if (distance < distanceThreshold) {
+    Stop();
+    return; // Exit loop if an obstacle is detected to prevent further movement
+  }
+
+  // Your existing robot control logic goes here
+  if ((digitalRead(R_S) == 0) && (digitalRead(M_S) == 1) && (digitalRead(L_S) == 0)) {
+    forward();
+    delay(10);
+  } else if ((digitalRead(R_S) == 1) && (digitalRead(M_S) == 1) && (digitalRead(L_S) == 0)) {
+    turnRight();
+  } else if ((digitalRead(R_S) == 0) && (digitalRead(M_S) == 1) && (digitalRead(L_S) == 1)) {
+    turnLeft();
+  } else {
+    forward();
+  }
+
+  delay(10);
+}
+
+void processData(String data) {
+  // Parse the received data and extract color values
+  int redValue = getValue(data, 'R');
+  int greenValue = getValue(data, 'G');
+  int blueValue = getValue(data, 'B');
+  int yellowValue = getValue(data, 'Y');
+
+  // Perform actions based on color values
+  // Example: Print color values to the serial monitor
+  Serial.print("Received Color Values - Red: ");
+  Serial.print(redValue);
+  Serial.print(" Green: ");
+  Serial.print(greenValue);
+  Serial.print(" Blue: ");
+  Serial.print(blueValue);
+  Serial.print(" Yellow: ");
+  Serial.println(yellowValue);
+
+  // Rotate the servo if the color sensor reads green
+  if (greenValue >= 0 && greenValue <= 255) {
+    myservo.write(120); // Rotate the green servo to 120 degrees
+    delay(1000);        // Adjust delay as needed
+    myservo.write(0);   // Return the green servo to the initial position
+  }
+
+  // Rotate the new servo if the color sensor reads red
+  if (redValue >= 0 && redValue <= 255) {
+    redServo.write(120); // Rotate the new servo to 120 degrees
+    delay(1000);         // Adjust delay as needed
+    redServo.write(0);   // Return the new servo to the initial position
+  }
+
+  // Add your custom logic here based on color values
+}
+
+int getValue(String data, char color) {
+  // Extract the color value from the received data
+  String colorTag = String(color) + ":";
+  int colorIndex = data.indexOf(colorTag);
+
+  if (colorIndex != -1) {
+    int valueIndex = colorIndex + colorTag.length();
+    String valueString = data.substring(valueIndex);
+    return valueString.toInt();
+  }
+
+  return -1; // Return -1 if the color value is not found
+}
+
+void forward() {
+  digitalWrite(in1, HIGH); // Left Motor backword Pin
+  digitalWrite(in2, LOW);  // Left Motor forword Pin
+  digitalWrite(in3, LOW);  // Right Motor forword Pin
+  digitalWrite(in4, HIGH); // Right Motor backword Pin
+}
+
+void backword(){ //backword
+digitalWrite(in1, LOW); //Left Motor backword Pin 
+digitalWrite(in2, HIGH); //Left Motor forword Pin 
+digitalWrite(in3, HIGH); //Right Motor forword Pin 
+digitalWrite(in4, LOW); //Right Motor backword Pin 
+}
+void turnRight(){ //turnRight
+digitalWrite(in1, HIGH); //Left Motor backword Pin 
+digitalWrite(in2, LOW); //Left Motor forword Pin 
+digitalWrite(in3, HIGH);//Right Motor forword Pin 
+digitalWrite(in4, LOW); //Right Motor backword Pin 
+}
+void turnLeft(){ //turnLeft
+digitalWrite(in1, LOW); //Left Motor backword Pin 
+digitalWrite(in2, HIGH); //Left Motor forword Pin 
+digitalWrite(in3, LOW); //Right Motor forword Pin 
+digitalWrite(in4, HIGH); //Right Motor backword Pin 
+}
+void Stop(){ //stop
+digitalWrite(in1, LOW); //Left Motor backword Pin 
+digitalWrite(in2, LOW); //Left Motor forword Pin 
+digitalWrite(in3, LOW); //Right Motor forword Pin 
+digitalWrite(in4, LOW); //Right Motor backword Pin 
+}
